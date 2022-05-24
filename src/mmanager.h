@@ -15,7 +15,9 @@ void mmanager_destroy(void);
 
 // Returns a pointer to a memory block of size `block_size`. Returns NULL if
 // a suitable block could not be found.
-void *allocate(size_t block_size);
+void *allocate(size_t size);
+
+void *allocate_debug(size_t size, int *i);
 
 // Returns a pointer to a memory block for an array of `n` elements of `size`
 // bytes. Returns NULL if the required memory could not be allocated.
@@ -34,7 +36,12 @@ void *reallocate(void *ptr, size_t new_size);
 // Note: `ptr` must not be NULL.
 void deallocate(void *ptr);
 
-
+// Merges allocated memory chunks together to maximize free space. Requires
+// the caller to pass in two arrays of pointers, `before_addresses` and 
+// `after_addresses`. These arrays will be written to so that `before_addresses` 
+// contains addresses of allocated memory before compaction, and `after_addresses`
+// contains addresses of allocated memory after compaction. Returns the number of
+// valid entries in `before_addresses`/`after_addresses`.
 size_t mmanager_compact(void **before_addresses, void **after_addresses);
 
 // Returns the amount of available memory in bytes.

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project("mmry_alloc")
 
-set(CMAKE_C_FLAGS "-g -Wall -Werror -pthread -D UNITY_INCLUDE_DOUBLE")
+set(CMAKE_C_FLAGS "-g -Wall -pthread -D UNITY_INCLUDE_DOUBLE")
 
 # No in-source build.
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")

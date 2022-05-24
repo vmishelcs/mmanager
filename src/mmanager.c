@@ -5,13 +5,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "mmanager.h"
 
 
-#define HEADER_SIZE 16
+#define HEADER_SIZE sizeof(header_t)
 
 
 typedef struct header {
@@ -30,7 +31,7 @@ struct mmanager {
 };
 
 
-struct mmanager memory_manager = { -1, 0, NULL, NULL, NULL };
+static struct mmanager memory_manager = { -1, 0, NULL, NULL, NULL };
 static pthread_mutex_t lock;
 
 
@@ -66,7 +67,7 @@ static void coalesce_free_blocks(void);
 
 void mmanager_initialize(size_t size, enum AllocationPolicy allocation_policy) {
     // Obtain 'size' bytes for the allocator and set allocation algorithm.
-    memory_manager.memory = sbrk((intptr_t)size);
+    memory_manager.memory = malloc(size);
     if (!memory_manager.memory) {
         fprintf(stderr, "ERROR: failed to obtain %lu memory for the allocator.\n", size);
         raise(SIGABRT);
@@ -91,11 +92,66 @@ void mmanager_initialize(size_t size, enum AllocationPolicy allocation_policy) {
 }
 
 void mmanager_destroy(void) {
-    sbrk(-((intptr_t)memory_manager.size));
+    free(memory_manager.memory);
     pthread_mutex_destroy(&lock);
 }
 
 void *allocate(size_t size) {
+    assert(size > 0);
+    void* ptr = NULL;
+    header_t *free_block_header = NULL;
+
+    pthread_mutex_lock(&lock);
+    {
+        switch (memory_manager.allocation_policy) {
+            case FIRST_FIT:
+                free_block_header = first_fit_block_search(size);
+                break;
+
+            case BEST_FIT:
+                free_block_header = best_fit_block_search(size);
+                break;
+            
+            case WORST_FIT:
+                free_block_header = worst_fit_block_search(size);
+                break;
+
+            default:
+                fprintf(stderr, "ERROR: no allocation algorithm specified.\n");
+                raise(SIGABRT);
+        }
+
+        if (free_block_header) {
+            // Rename `free_block_header` to `allocated_block_header` for clarity.
+            header_t *allocated_block_header = free_block_header;
+            // Remove it from free list.
+            remove_from_free_list(allocated_block_header);
+
+            // Check if there is more memory in this block for future allocation.
+            if (allocated_block_header->block_size - size > HEADER_SIZE) {
+                // Create a new free block.
+                header_t *new_free_block_header = (header_t *)(allocated_block_header->block_memory + size);
+                new_free_block_header->block_size = allocated_block_header->block_size - (HEADER_SIZE + size);
+
+                // Add `new_free_block_header` to free list.
+                add_to_free_list(new_free_block_header);
+
+                // Set the size of the newly allocated block.
+                allocated_block_header->block_size = size;
+            }
+
+            // Add `allocated_block_header` to alloc list.
+            add_to_alloc_list(allocated_block_header);
+            
+            ptr = (void *)allocated_block_header->block_memory;
+        }
+    }
+    pthread_mutex_unlock(&lock);
+
+    return ptr;
+}
+
+void *allocate_debug(size_t size, int *i) {
     assert(size > 0);
     void* ptr = NULL;
     header_t *free_block_header = NULL;
