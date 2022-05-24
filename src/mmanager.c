@@ -184,61 +184,65 @@ void deallocate(void *ptr) {
 size_t allocator_compact(void **before_addresses, void **after_addresses) {
     int index = 0;
 
-    // Check that there is memory allocated and that there is free memory.
-    if (memory_manager.alloc_list && memory_manager.free_list) {
-        header_t *current_alloc_block = memory_manager.alloc_list;
+    pthread_mutex_lock(&lock);
+    {
+        // Check that there is memory allocated and that there is free memory.
+        if (memory_manager.alloc_list && memory_manager.free_list) {
+            header_t *current_alloc_block = memory_manager.alloc_list;
 
-        // To determine if we must move `current_alloc_block`, look at the
-        // address of the first free block. If it is less than the address of
-        // `current_alloc_block`, compaction needs to occur. Otherwise, look
-        // at the next allocated block.
-        // Note: We only have to interact with the head of the free list.
-        while (current_alloc_block) {
-            header_t *first_free_block = memory_manager.free_list;
+            // To determine if we must move `current_alloc_block`, look at the
+            // address of the first free block. If it is less than the address of
+            // `current_alloc_block`, compaction needs to occur. Otherwise, look
+            // at the next allocated block.
+            // Note: We only have to interact with the head of the free list.
+            while (current_alloc_block) {
+                header_t *first_free_block = memory_manager.free_list;
 
-            if (first_free_block < current_alloc_block) {
-                // Remove the allocated block and the free block from their lists.
-                remove_from_alloc_list(current_alloc_block);
-                remove_from_free_list(first_free_block);
+                if (first_free_block < current_alloc_block) {
+                    // Remove the allocated block and the free block from their lists.
+                    remove_from_alloc_list(current_alloc_block);
+                    remove_from_free_list(first_free_block);
 
-                // Set before-compaction address.
-                before_addresses[index] = current_alloc_block->block_memory;
-                
-                // Remember the size of `first_free_block` to set it later.
-                size_t free_block_size = first_free_block->block_size;
+                    // Set before-compaction address.
+                    before_addresses[index] = current_alloc_block->block_memory;
+                    
+                    // Remember the size of `first_free_block` to set it later.
+                    size_t free_block_size = first_free_block->block_size;
 
-                // Copy header info from `current_alloc_block` to `first_free_block`.
-                memcpy((void *)first_free_block, (void *)current_alloc_block, HEADER_SIZE);
+                    // Copy header info from `current_alloc_block` to `first_free_block`.
+                    memcpy((void *)first_free_block, (void *)current_alloc_block, HEADER_SIZE);
 
-                // Move `current_alloc_block` data.
-                memcpy((void *)first_free_block->block_memory,
-                       (void *)current_alloc_block->block_memory,
-                       current_alloc_block->block_size);
-                
-                // At this point, `current_alloc_block` has been entirely moved.
-                // Redefine for clarity.
-                current_alloc_block = first_free_block;
-                first_free_block = (header_t *)(current_alloc_block->block_memory + current_alloc_block->block_size);
+                    // Move `current_alloc_block` data.
+                    memcpy((void *)first_free_block->block_memory,
+                        (void *)current_alloc_block->block_memory,
+                        current_alloc_block->block_size);
+                    
+                    // At this point, `current_alloc_block` has been entirely moved.
+                    // Redefine for clarity.
+                    current_alloc_block = first_free_block;
+                    first_free_block = (header_t *)(current_alloc_block->block_memory + current_alloc_block->block_size);
 
-                // Set free block size, since at the moment it stores garbage data.
-                first_free_block->block_size = free_block_size;
+                    // Set free block size, since at the moment it stores garbage data.
+                    first_free_block->block_size = free_block_size;
 
-                // Add the compacted blocks back to their lists.
-                add_to_alloc_list(current_alloc_block);
-                add_to_free_list(first_free_block);
+                    // Add the compacted blocks back to their lists.
+                    add_to_alloc_list(current_alloc_block);
+                    add_to_free_list(first_free_block);
 
-                // Eliminate any contiguous free blocks.
-                coalesce_free_blocks();
+                    // Eliminate any contiguous free blocks.
+                    coalesce_free_blocks();
 
-                // Set after-compaction address.
-                after_addresses[index] = current_alloc_block->block_memory;
-                ++index;
+                    // Set after-compaction address.
+                    after_addresses[index] = current_alloc_block->block_memory;
+                    ++index;
+                }
+
+                // Look at next allocated block.
+                current_alloc_block = current_alloc_block->next;
             }
-
-            // Look at next allocated block.
-            current_alloc_block = current_alloc_block->next;
         }
     }
+    pthread_mutex_unlock(&lock);
 
     // Return size of the argument arrays.
     return index;
