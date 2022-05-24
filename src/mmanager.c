@@ -64,7 +64,7 @@ static void remove_from_alloc_list(header_t *header_address);
 static void coalesce_free_blocks(void);
 
 
-void allocator_initialize(size_t size, enum AllocationPolicy allocation_policy) {
+void mmanager_initialize(size_t size, enum AllocationPolicy allocation_policy) {
     // Obtain 'size' bytes for the allocator and set allocation algorithm.
     memory_manager.memory = sbrk((intptr_t)size);
     if (!memory_manager.memory) {
@@ -90,7 +90,7 @@ void allocator_initialize(size_t size, enum AllocationPolicy allocation_policy) 
     pthread_mutex_init(&lock, NULL);
 }
 
-void allocator_destroy(void) {
+void mmanager_destroy(void) {
     sbrk(-((intptr_t)memory_manager.size));
     pthread_mutex_destroy(&lock);
 }
@@ -181,7 +181,7 @@ void deallocate(void *ptr) {
     pthread_mutex_unlock(&lock);
 }
 
-size_t allocator_compact(void **before_addresses, void **after_addresses) {
+size_t mmanager_compact(void **before_addresses, void **after_addresses) {
     int index = 0;
 
     pthread_mutex_lock(&lock);
@@ -248,7 +248,7 @@ size_t allocator_compact(void **before_addresses, void **after_addresses) {
     return index;
 }
 
-size_t allocator_available_memory(void) {
+size_t mmanager_available_memory(void) {
     size_t size = 0;
     
     pthread_mutex_lock(&lock);
@@ -450,7 +450,7 @@ static void coalesce_free_blocks(void) {
     }
 }
 
-void allocator_print_free_list(void) {
+void mmanager_print_free_list(void) {
     printf("Free list:\n");
     pthread_mutex_lock(&lock);
     {
@@ -463,7 +463,7 @@ void allocator_print_free_list(void) {
     pthread_mutex_unlock(&lock);
 }
 
-void allocator_print_alloc_list(void) {
+void mmanager_print_alloc_list(void) {
     printf("Alloc list:\n");
     pthread_mutex_lock(&lock);
     {

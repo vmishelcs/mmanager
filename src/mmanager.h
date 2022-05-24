@@ -8,10 +8,10 @@ enum AllocationPolicy {
 };
 
 // Initializes allocation mechanism.
-void allocator_initialize(size_t size, enum AllocationPolicy allocation_policy);
+void mmanager_initialize(size_t size, enum AllocationPolicy allocation_policy);
 
 // Destroy allocator and frees all memory.
-void allocator_destroy(void);
+void mmanager_destroy(void);
 
 // Returns a pointer to a memory block of size `block_size`. Returns NULL if
 // a suitable block could not be found.
@@ -35,13 +35,13 @@ void *reallocate(void *ptr, size_t new_size);
 void deallocate(void *ptr);
 
 
-size_t allocator_compact(void **before_addresses, void **after_addresses);
+size_t mmanager_compact(void **before_addresses, void **after_addresses);
 
 // Returns the amount of available memory in bytes.
-size_t allocator_available_memory(void);
+size_t mmanager_available_memory(void);
 
 // Debugging.
-void allocator_print_free_list(void);
-void allocator_print_alloc_list(void);
+void mmanager_print_free_list(void);
+void mmanager_print_alloc_list(void);
 
 #endif // MMANAGER_H_
